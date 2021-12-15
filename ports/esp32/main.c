@@ -127,9 +127,18 @@ void mp_task(void *pvParameter) {
     #endif
 
     // If we have no SPIRAM,
-    // allocate the uPy heap using malloc and get the largest available region
+    // allocate the uPy heap using malloc
     if (!mp_task_heap_size) {
-        mp_task_heap_size = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+        size_t largest_free = heap_caps_get_largest_free_block(MALLOC_CAP_8BIT);
+
+        // IDF 4.0 does not provide heap_caps_get_total_size(), use
+        // total free instead as there is little memory allocated now
+        size_t total_free = heap_caps_get_free_size(MALLOC_CAP_8BIT);
+
+        // Use a heuristic ratio to split uPy heap and the remaining IFD heap
+        // or use the largest available region if smaller
+        // Fine tuned to leave uPy heap 111168 bytes on ESP32 and IDF 4.0.2
+        mp_task_heap_size = MIN(largest_free, total_free * 7 / 8 - 68249);
         mp_task_heap = malloc(mp_task_heap_size);
     }
 
